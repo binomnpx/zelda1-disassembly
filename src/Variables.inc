@@ -262,6 +262,7 @@ LastBossDefeated := $672
 InvBoomerang := $674
 InvMagicBoomerang := $675
 InvMagicShield := $676
+BookSelected := $677
 MaxBombs := $67C
 RupeesToAdd := $67D
 RupeesToSubtract := $67E

@@ -2590,7 +2590,10 @@ InitMode1_Sub1:
     JSR TurnOffVideoAndClearArtifacts
     LDY #$04
     LDA #$00
-    STA ForceSwordShot          ; UNKNOWN: Why now?
+    ; STA ForceSwordShot          ; UNKNOWN: Why now?
+	NOP
+	NOP
+	NOP
 :
     STA RoomHistory, Y
     DEY

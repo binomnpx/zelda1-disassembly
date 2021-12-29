@@ -237,6 +237,7 @@
 .IMPORT IsDistanceSafeToSpawn
 .IMPORT Link_HandleInput
 .IMPORT MaskCurPpuMaskGrayscale
+.IMPORT RotateBook
 .IMPORT SetupObjRoomBounds
 .IMPORT UpdateDoors
 .IMPORT UpdateMenuAndMeters
@@ -1425,7 +1426,10 @@ InitMode3_Sub0:
 ClearRoomHistory:
     LDY #$05
     LDA #$00
-    STA ForceSwordShot
+    ; STA ForceSwordShot
+	NOP
+	NOP
+	NOP
 
 @Loop:
     ; Clear the room history.
@@ -1833,12 +1837,22 @@ UpdateMode5Play:
     LDA ButtonsPressed
     AND #$20
     BEQ @CheckPaused            ; If pressed Select,
-    LDA Paused                  ; then toggle pause.
-    EOR #$01
-    STA Paused
-    BNE @CheckPaused            ; If not paused,
-    LDA #$0F                    ; then enable sound.
-    STA ApuStatus_4015
+	
+    ; LDA Paused                  ; then toggle pause.
+    ; EOR #$01
+    ; STA Paused
+    ; BNE @CheckPaused            ; If not paused,
+    ; LDA #$0F                    ; then enable sound.
+    ; STA ApuStatus_4015
+	
+	LDA #$05
+	JSR SwitchBank
+	JSR RotateBook
+	NOP
+	NOP
+	NOP
+	NOP
+	NOP
 
 @CheckPaused:
     ; If paused, then make sure to use NT 0,
@@ -4639,7 +4653,7 @@ MakeSwordShot:
     LSR
     LSR
     LSR
-    CMP $00
+    CMP #$00
     BNE L1F854_Exit
 
     ; If partial heart is less than half full, return.

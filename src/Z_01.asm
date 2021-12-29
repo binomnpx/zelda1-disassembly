@@ -8,6 +8,9 @@
 
 .SEGMENT "BANK_01_00"
 
+; Imports from program bank 05
+
+.IMPORT SwordFlameOrStun
 
 ; Imports from program bank 07
 
@@ -3284,7 +3287,10 @@ FormatHeartsInTextBuf:
     CMP #$80
     BCS @EmitFullHeart          ; If partial heart at least half full, go emit a full heart tile.
     LDA #$00
-    STA ForceSwordShot          ; else, clear [$0529]
+    ; STA ForceSwordShot          ; else, clear [$0529]
+	NOP
+	NOP
+	NOP
     LDA #$65                    ; and use a half heart tile.
     BNE @EmitChar
 
@@ -5717,6 +5723,7 @@ L73A9_Exit:
     RTS
 
 HarmLink:
+;25 bytes
     JSR BeginShove
 
     ; Flag collision with [0C], even though [06] was already set.
@@ -6329,7 +6336,7 @@ ParryOrShove:
     BEQ PlayParryTune
 :
     ; Else shove the monster.
-    JMP BeginShove
+    JMP BeginShoveTrampoline
 
 PlayParryTune:
     LDA #$01
@@ -6694,10 +6701,28 @@ BeginShove:
     RTS
 
 Filler_7751:
+
+BeginShoveTrampoline:
+
+	JSR BeginShove
+
+	LDA #$04
+	PHA	
+	LDA #>(SwordFlameOrStun - 1)
+	PHA
+	LDA #<(SwordFlameOrStun - 1)
+	PHA
+	
+	LDA #$05
+	JMP SwitchBank_Local1  ; Function in fixed bank.
+	
+	
+    ; .BYTE $FF, $FF, $FF, $FF, $FF, $FF, $FF, $FF
+    ; .BYTE $FF, $FF, $FF, $FF, $FF, $FF, $FF, $FF
+    ; .BYTE $FF, $FF, $FF, $FF
+	
     .BYTE $FF, $FF, $FF, $FF, $FF, $FF, $FF, $FF
-    .BYTE $FF, $FF, $FF, $FF, $FF, $FF, $FF, $FF
-    .BYTE $FF, $FF, $FF, $FF, $FF, $FF, $FF, $FF
-    .BYTE $FF, $FF, $FF, $FF, $FF, $FF, $FF
+	.BYTE $FF, $FF, $FF
 
 .SEGMENT "BANK_01_ISR"
 

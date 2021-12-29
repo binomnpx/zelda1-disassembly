@@ -137,9 +137,11 @@
 .EXPORT InitModeD
 .EXPORT InitSaveRam
 .EXPORT IsDistanceSafeToSpawn
+.EXPORT SwordFlameOrStun
 .EXPORT Link_HandleInput
 .EXPORT MaskCurPpuMaskGrayscale
 .EXPORT ResetInvObjState
+.EXPORT RotateBook
 .EXPORT SetupObjRoomBounds
 .EXPORT UpdateDoors
 .EXPORT UpdateMenuAndMeters
@@ -6931,7 +6933,7 @@ Link_HandleInput:
     LDA ButtonsPressed
     AND #$80
     BEQ :+
-    JSR WieldSword
+    JSR WieldSwordTrampoline
 :
     ; If B is pressed, handle the item.
     LDA ButtonsPressed
@@ -8157,7 +8159,7 @@ DrawItemInInventoryWithX:
     ; X: item slot
     TXA
     TAY
-    JMP DrawItemInInventory
+    JMP DrawItemInInventoryTrampoline
 
 ; Params:
 ; [$EF]: direction to search: 0=none, 1=forward, 2=backward
@@ -8281,6 +8283,189 @@ CreateRoomObjects:
     ; Else deactivate the object.
     DEC ObjState+19
     RTS
+
+; X is monster
+; Y is weapon
+
+SwordFlameOrStun:
+	
+	; LDA $00						; If 0, Link is defending. So, check if he gets fire immunity.
+	; BEQ @Exit
+	
+	LDA $09						; If not sword, leave ($09 is damage type)
+	CMP #$01
+	BNE @Exit
+
+	LDA BookSelected				; no book selected, exit
+	BEQ @Exit
+	
+	CMP #$02						; blue book
+	BEQ @Stun
+	
+	CMP #$03						; green book
+	BEQ @Exit
+	
+									; red book
+
+	TYA							; store weapon on stack
+	PHA
+	
+    LDA ObjState
+    PHA
+    LDA UsedCandle
+    PHA
+    LDA #$00
+    STA UsedCandle
+    JSR WieldCandle
+    PLA
+    STA UsedCandle
+    PLA
+    STA ObjState
+	
+	PLA							; restore weapon from stack
+	TAY							; place weapon in Y
+
+    ; State $21 means that a moving fire was just made.
+    ;
+    ; If it's any another value, then we didn't find an empty slot
+    ; to make a fire. In this case, exit.
+    LDA ObjState, X
+    CMP #$21
+    BNE @Exit
+
+    ; Make state $22 for a standing fire.
+    INC ObjState, X
+
+    ; The fire lasts $4F frames.
+    LDA #$4F
+    STA ObjTimer, X
+
+    ; Copy the weapon's position and direction to the fire.
+	; add distance so link doesn't burn himself
+	
+	; figure out direction and adjust
+	; right = $01, left = $02, up = $08, down = $04
+	
+    LDA ObjX, Y
+    STA ObjX, X
+    LDA ObjY, Y
+    STA ObjY, X
+	
+    LDA ObjDir, Y
+    STA ObjDir, X
+	
+	CMP #$01
+	BEQ @Right
+	
+	CMP #$02
+	BEQ @Left
+	
+	CMP #$08
+	BEQ @Up
+	
+; @Down:
+    LDA ObjY, Y
+	ADC #$08
+    STA ObjY, X
+	BNE @Exit
+
+@Right:
+    LDA ObjX, Y
+	ADC #$08
+    STA ObjX, X
+	BNE @Exit
+	
+
+@Left:
+    LDA ObjX, Y
+	SBC #$08
+    STA ObjX, X
+	BNE @Exit
+
+@Up:
+    LDA ObjY, Y
+	SBC #$08
+    STA ObjY, X
+
+@Exit:
+
+	; Return to DealDamage.
+	PLA
+	JMP SwitchBank_Local5
+
+@Stun:
+    LDA #$10
+    STA ObjStunTimer, X
+	JMP @Exit
+
+
+RotateBook:
+	LDA InvBook
+	BEQ:+
+	
+	INC BookSelected
+	LDA BookSelected
+	CMP InvBook
+	BEQ:+
+	BCC:+
+	LDA #$00
+	STA BookSelected
+:
+	LDA #$07
+	JMP SwitchBank_Local5
+
+
+DrawItemInInventoryTrampoline:
+
+	LDA $00
+	CMP #$7C					; stay if B item
+	BNE @Exit
+
+	LDA BookSelected
+	BEQ @Exit					; no book selected -> continue as normal
+	LDY #$0A					; book selected -> load magic book slot
+	
+	CMP #$01
+	BEQ @Red
+	
+	CMP #$02
+	BEQ @Blue
+	
+; @Green:
+	LDA #$03
+	TAX
+	JMP @Exit
+
+@Red:
+	LDA #$0A
+	TAX
+	JMP @Exit
+	
+@Blue:
+	LDA #$08
+	TAX
+	JMP @Exit
+	
+@Exit:
+	JMP DrawItemInInventory
+
+
+
+WieldSwordTrampoline:
+
+	LDA BookSelected
+	CMP #$03
+	BNE @ClearSwordShot
+	
+	STA ForceSwordShot
+	JMP WieldSword
+	
+@ClearSwordShot:
+	LDA #$00
+	STA ForceSwordShot
+	JMP WieldSword
+	
+	
 
 .SEGMENT "BANK_05_ISR"
 
