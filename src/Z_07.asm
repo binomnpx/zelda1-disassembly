@@ -57,6 +57,7 @@
 .IMPORT GetDirectionsAndDistancesToTarget
 .IMPORT GetOppositeDir
 .IMPORT GetRoomFlagUWItemState
+.IMPORT HandleShotBlockedBook
 .IMPORT HideObjectSprites
 .IMPORT ItemIdToDescriptor
 .IMPORT ItemIdToSlot
@@ -3566,8 +3567,9 @@ HandleShotBlocked:
     ; This is a magic shot.
     ;
     ; If missing the magic book, go deactivate the shot object.
-    LDA InvBook
-    BEQ DeactivateShot
+    ; LDA InvBook
+	JSR HandleShotBlockedBook
+    BNE DeactivateShot
 
     ; Try to activate a fire object. Temporarily mark the candle
     ; unused, so it only has to depend on having an empty slot.

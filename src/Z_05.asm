@@ -26,6 +26,7 @@
 .IMPORT GetShortcutOrItemXY
 .IMPORT HideObjectSprites
 .IMPORT InitModeB_EnterCave_Bank5
+.IMPORT LinkColors_CommonCode
 .IMPORT Negate
 .IMPORT PlaceWeaponForPlayerState
 .IMPORT PlaceWeaponForPlayerStateAndAnim
@@ -37,6 +38,7 @@
 .IMPORT ReverseDirections
 .IMPORT SilenceAllSound
 .IMPORT Sub1FromInt16At4
+.IMPORT SwordDamagePoints
 .IMPORT UpdatePlayerPositionMarker
 .IMPORT UpdateWorldCurtainEffect
 .IMPORT WieldBomb
@@ -47,6 +49,7 @@
 
 .IMPORT ColumnDirectoryOW
 .IMPORT LevelNumberTransferBuf
+.IMPORT MenuPalettesTransferBuf
 .IMPORT TriforceRow0TransferBuf
 
 ; Imports from program bank 07
@@ -85,6 +88,7 @@
 .IMPORT ResetShoveInfo
 .IMPORT RunCrossRoomTasksAndBeginUpdateMode
 .IMPORT RunCrossRoomTasksAndBeginUpdateMode_EnterPlayModes
+.IMPORT SaveSlotToPaletteRowOffset
 .IMPORT SetUpAndDrawLinkLiftingItem
 .IMPORT TableJump
 .IMPORT TurnOffAllVideo
@@ -108,6 +112,7 @@
 .EXPORT ClearRam
 .EXPORT CopyColumnToTileBuf
 .EXPORT CreateRoomObjects
+.EXPORT DetermineSwordDamage
 .EXPORT DrawItemInInventoryWithX
 .EXPORT DrawLinkBetweenRooms
 .EXPORT FetchTileMapAddr
@@ -137,12 +142,13 @@
 .EXPORT InitModeD
 .EXPORT InitSaveRam
 .EXPORT IsDistanceSafeToSpawn
-.EXPORT SwordFlameOrStun
 .EXPORT Link_HandleInput
 .EXPORT MaskCurPpuMaskGrayscale
 .EXPORT ResetInvObjState
 .EXPORT RotateBook
+.EXPORT SetStartingWeapon
 .EXPORT SetupObjRoomBounds
+.EXPORT SwordFlameOrStun
 .EXPORT UpdateDoors
 .EXPORT UpdateMenuAndMeters
 .EXPORT UpdateMode10Stairs_Full
@@ -1541,7 +1547,7 @@ InitMode4_GoToSub0:
 ;
 InitMode_EnterRoom:
     JSR DrawSpritesBetweenRooms
-    JSR ResetPlayerState
+    JSR ResetPlayerStateHijack
 
     ; Reset [0300] to [051F].
     LDA #$05
@@ -6933,13 +6939,13 @@ Link_HandleInput:
     LDA ButtonsPressed
     AND #$80
     BEQ :+
-    JSR WieldSwordTrampoline
+    JSR WieldSwordHijack
 :
     ; If B is pressed, handle the item.
     LDA ButtonsPressed
     AND #$40
     BEQ @CheckMovement
-    JSR WieldItem
+    JSR WieldItemHijack
 
 @CheckMovement:
     ; If player was shoved, return.
@@ -8159,7 +8165,7 @@ DrawItemInInventoryWithX:
     ; X: item slot
     TXA
     TAY
-    JMP DrawItemInInventoryTrampoline
+    JMP DrawItemInInventoryHijack
 
 ; Params:
 ; [$EF]: direction to search: 0=none, 1=forward, 2=backward
@@ -8284,9 +8290,383 @@ CreateRoomObjects:
     DEC ObjState+19
     RTS
 
+
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+RotateBook:
+	LDA InvBook
+	BEQ @Exit
+	
+	INC BookSelected
+	LDA BookSelected
+	CMP InvBook
+	BEQ @Exit
+	BCC @Exit
+	LDA #$00
+	STA BookSelected
+
+@Exit:
+	LDA #$07
+	JMP SwitchBank_Local5
+
+
+
+; [$00]: X
+; [$01]: Y
+; X: item slot
+
+DrawItemInInventoryHijack:
+
+	; do not change raft, book, ring, ladder etc.
+	LDA $01
+	CMP #$1E
+	BEQ @Exit
+
+	LDA $00
+	CMP #$94
+	BEQ @HandleAWeapon
+	
+	CMP #$7C
+	BNE @HandleSword
+
+
+; @HandleBItem:
+	LDA BookSelected
+	BEQ @HandleSword			; no book selected -> continue as normal
+	LDY #$0A					; book selected -> load magic book slot
+	
+	CMP #$01
+	BEQ @Red
+	
+	CMP #$02
+	BEQ @Blue
+	
+; @Green:
+	LDA #$03					; steal color from bow
+	TAX
+	JMP @Exit
+
+@Red:
+	LDA #$0A					; use magic book original color
+	TAX
+	JMP @Exit
+	
+@Blue:
+	LDA #$08					; steal color from rod
+	TAX
+	JMP @Exit
+	
+@HandleAWeapon:
+	LDA StartingWeapon
+	LDY #$08					; rod item slot
+	LDX #$08					; rod color
+	CMP #$01
+	BEQ @Exit
+	
+	LDY #$00					; sword item slot
+	LDX #$00					; sword color
+	CMP #$02
+	BEQ @Exit
+	
+	LDY #$03					; bow item slot
+	LDX #$03					; bow color
+	BNE @Exit
+
+
+@HandleSword:
+	
+	; we are trying to change either the rod or bow to a sword
+	; in the item selection screen (when you press START) or
+	; in the B item slot
+	
+	CPX #$02
+	BEQ @HandleArrow
+
+	CPX #$08
+	BEQ @TryToChangeRod
+	
+	CPX #$03
+	BNE @Exit
+
+;@TryToChangeBow:
+	LDA StartingWeapon
+	CMP #$03
+	BNE @Exit					; do not change if bow was not chosen
+	LDY #$00					; sword item slot
+	LDX #$00					; sword color
+	
+	LDA $00						; if this is the bow in inventory
+	CMP #$B4					; shift left ($B4 -> $B0) so sword appears in middle
+	BNE @Exit
+	LDA #$B0
+	STA $00
+	BEQ @Exit
+	
+@TryToChangeRod:
+	LDA StartingWeapon
+	CMP #$01
+	BNE @Exit					; do not change if rod was not chosen
+	LDY #$00					; sword item slot
+	LDX #$00					; sword color
+	
+@Exit:
+	JMP DrawItemInInventory
+
+@HandleArrow:
+	LDA StartingWeapon
+	CMP #$03
+	BNE @Exit
+
+	LDA $00
+	CMP #$7C
+	BNE @StartMenuOrBox
+	LDY #$00					; sword item slot
+	LDX #$00					; sword color
+	BEQ @Exit
+
+@StartMenuOrBox:
+	LDY #$00					; sword item slot
+	LDX #$00					; sword color
+	CMP #$40
+	BEQ @Exit					; do not draw arrow if starting weapon is bow and this is the START menu
+	RTS
+
+
+
+
+WieldSwordHijack:
+	; wield starting weapon when A is pressed
+	; no sword shots unless ActiveMagic == $03
+	LDA StartingWeapon
+	CMP #$01
+	BEQ @Rod
+	
+	LDA StartingWeapon
+	CMP #$03
+	BEQ @Bow
+	
+	LDA ActiveMagic
+	CMP #$03
+	BNE @ClearSwordShot
+	
+	STA ForceSwordShot
+	JMP WieldSword
+	
+@ClearSwordShot:
+	LDA #$00
+	STA ForceSwordShot
+	JMP WieldSword
+	
+@Rod:
+	JMP WieldRod
+	
+@Bow:
+	JMP WieldArrow
+	
+	
+
+	
+	
+WieldItemHijack:
+
+	; pressing B takes you here
+
+	; LDA StartingWeapon
+	; CMP #$01
+	; BEQ @RodMagic
+	
+	; CMP #$03
+	; BEQ @BowMagic
+
+;@Sword
+	LDA BookSelected
+	BEQ @WieldItem
+	
+	LDA ActiveMagic
+	BNE @Exit
+	
+	LDA BookSelected
+	
+	CMP #$03
+	BEQ @SwordLightning
+	
+	CMP #$02
+	BEQ @SwordFrost
+	
+;@SwordFire:
+
+	LDA #$02
+	BNE @SwordTryMagic
+	
+@SwordFrost:
+	LDA #$04
+	BNE @SwordTryMagic
+	
+@SwordLightning:
+	LDA #$08
+	
+@SwordTryMagic:
+	CMP InvRupees
+	BEQ @SwordJustEnough
+	BCS @Exit
+
+@SwordJustEnough:
+
+	STA RupeesToSubtract
+	
+	LDA #$18
+    STA ObjInvincibilityTimer
+	
+	LDA #$08
+    STA Tune1Request
+	
+	LDA BookSelected
+	STA ActiveMagic
+	
+; @RodMagic:
+
+; @BowMagic:
+	
+@Exit:
+	RTS
+
+@WieldItem:
+
+; if starting weapon is bow or rod, we might need to wield sword
+
+	LDA SelectedItemSlot
+	CMP #$08
+	BEQ @Rod
+	CMP #$02
+	BEQ @Arrow
+	JMP WieldItem
+	
+@Rod:
+	LDA StartingWeapon
+	CMP #$01
+	BEQ @WieldSword
+	JMP WieldItem
+
+@Arrow:
+	LDA StartingWeapon
+	CMP #$03
+	BEQ @WieldSword
+	JMP WieldItem
+	
+@WieldSword:
+	JMP WieldSword
+	
+	
+	
+	
+	
+ResetPlayerStateHijack:
+	LDA #$00
+	STA ActiveMagic
+	
+	JMP ResetPlayerState
+
+
+
+
+
+; jump here from bank 1
+SetStartingWeapon:
+	; initialized data when your first "liftable" item is picked up
+	; supposed to happen in "take this" cave
+
+	LDA StartingWeapon
+	BNE @Exit
+	
+	; StartingWeapon has not been determined
+	INC InvBook
+	
+	INC StartingWeapon
+	CPY #$08						; rod ($01)
+	BEQ @Rod
+	
+	INC StartingWeapon
+	CPY #$00						; sword ($02)
+	BEQ @Sword
+	
+	INC StartingWeapon				; bow ($03)
+	LDA #$01
+	STA InvArrow
+	INC InvKeys
+	DEC Bow							; remove bow
+	INC Items						; add wooden sword
+	BNE @Exit
+
+
+@Rod:
+	INC InvCandle
+	INC Potion
+	DEC $065F						; remove rod
+	INC Items
+	INC Items						; add white sword
+	BNE @ChangeColor
+	
+@Sword:
+	INC InvFood
+	INC Potion
+	INC Potion
+
+@ChangeColor:
+    LDX CurSaveSlot
+    ; LDY InvRing                 ; Get ring in inventory.
+    LDY StartingWeapon                 ; Get ring in inventory.
+    LDA LinkColors_CommonCode, Y    ; Get the color for this ring value.
+    LDY SaveSlotToPaletteRowOffset, X    ; Get the offset of row 4, 5, or 6, depending on save slot.
+    STA MenuPalettesTransferBuf+20, Y    ; Patch the color into the menu palette.
+    JSR PatchAndCueLevelPalettesTransferAndAdvanceSubmode    ; Then patch the color into the level's palette.
+
+@Exit:
+	PLA
+	JMP SwitchBank_Local5
+
+
+
+
+
+
+; jump here from bank 1
+DetermineSwordDamage:
+	; gets the correct sword damage per sword
+	; gets correct sword damage per ActiveMagic
+
+	LDA ActiveMagic
+	BEQ @NoMagic
+	
+	TAY
+	
+	LDA #$10					; fire magic
+    CPY #$01
+    BEQ @Done
+    LDA #$20					; frost magic
+    CPY #$02
+    BEQ @Done
+    LDA #$40					; lightning magic
+	BNE @Done
+	
+@NoMagic:
+    LDY Items
+    LDA SwordDamagePoints-1, Y
+	
+@Done:
+	STA $0D						; place byte here to survive the bank switch
+	PLA
+	JMP SwitchBank_Local5
+
+
+
+
+
+
 ; X is monster
 ; Y is weapon
 
+; jump here from bank 1
 SwordFlameOrStun:
 	
 	; LDA $00						; If 0, Link is defending. So, check if he gets fire immunity.
@@ -8296,7 +8676,7 @@ SwordFlameOrStun:
 	CMP #$01
 	BNE @Exit
 
-	LDA BookSelected				; no book selected, exit
+	LDA ActiveMagic				; no book selected, exit
 	BEQ @Exit
 	
 	CMP #$02						; blue book
@@ -8352,7 +8732,6 @@ SwordFlameOrStun:
     STA ObjY, X
 	
     LDA ObjDir, Y
-    STA ObjDir, X
 	
 	CMP #$01
 	BEQ @Right
@@ -8365,12 +8744,14 @@ SwordFlameOrStun:
 	
 ; @Down:
     LDA ObjY, Y
+	CLC
 	ADC #$08
     STA ObjY, X
 	BNE @Exit
 
 @Right:
     LDA ObjX, Y
+	CLC
 	ADC #$08
     STA ObjX, X
 	BNE @Exit
@@ -8378,94 +8759,30 @@ SwordFlameOrStun:
 
 @Left:
     LDA ObjX, Y
+	CLC
 	SBC #$08
     STA ObjX, X
 	BNE @Exit
 
 @Up:
     LDA ObjY, Y
+	CLC
 	SBC #$08
     STA ObjY, X
 
 @Exit:
-
-	; Return to DealDamage.
 	PLA
 	JMP SwitchBank_Local5
 
 @Stun:
     LDA #$10
     STA ObjStunTimer, X
-	JMP @Exit
-
-
-RotateBook:
-	LDA InvBook
-	BEQ:+
-	
-	INC BookSelected
-	LDA BookSelected
-	CMP InvBook
-	BEQ:+
-	BCC:+
-	LDA #$00
-	STA BookSelected
-:
-	LDA #$07
-	JMP SwitchBank_Local5
-
-
-DrawItemInInventoryTrampoline:
-
-	LDA $00
-	CMP #$7C					; stay if B item
 	BNE @Exit
 
-	LDA BookSelected
-	BEQ @Exit					; no book selected -> continue as normal
-	LDY #$0A					; book selected -> load magic book slot
-	
-	CMP #$01
-	BEQ @Red
-	
-	CMP #$02
-	BEQ @Blue
-	
-; @Green:
-	LDA #$03
-	TAX
-	JMP @Exit
-
-@Red:
-	LDA #$0A
-	TAX
-	JMP @Exit
-	
-@Blue:
-	LDA #$08
-	TAX
-	JMP @Exit
-	
-@Exit:
-	JMP DrawItemInInventory
 
 
 
-WieldSwordTrampoline:
 
-	LDA BookSelected
-	CMP #$03
-	BNE @ClearSwordShot
-	
-	STA ForceSwordShot
-	JMP WieldSword
-	
-@ClearSwordShot:
-	LDA #$00
-	STA ForceSwordShot
-	JMP WieldSword
-	
-	
 
 .SEGMENT "BANK_05_ISR"
 

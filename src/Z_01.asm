@@ -8,10 +8,6 @@
 
 .SEGMENT "BANK_01_00"
 
-; Imports from program bank 05
-
-.IMPORT SwordFlameOrStun
-
 ; Imports from program bank 07
 
 .IMPORT Anim_AdvanceAnimCounterAndSetObjPosForSpriteDescriptor
@@ -2694,10 +2690,13 @@ CommonCodeBlock_Bank1:
 ; Imports from program bank 05
 
 .IMPORT CopyColumnToTileBuf
+.IMPORT DetermineSwordDamage
 .IMPORT InitMode_EnterRoom
 .IMPORT ResetInvObjState
+.IMPORT SetStartingWeapon
 .IMPORT SetMMC1Control_Local5
 .IMPORT SwitchBank_Local5
+.IMPORT SwordFlameOrStun
 
 ; Imports from RAM code bank 06
 
@@ -2777,12 +2776,14 @@ CommonCodeBlock_Bank1:
 .EXPORT GetRoomFlagUWItemState
 .EXPORT GetShortcutOrItemXY
 .EXPORT GetShortcutOrItemXYForRoom
+.EXPORT HandleShotBlockedBook
 .EXPORT HideObjectSprites
 .EXPORT InitModeB_EnterCave_Bank5
 .EXPORT ItemIdToDescriptor
 .EXPORT ItemIdToSlot
 .EXPORT ItemSlotToPaletteOffsetsOrValues
 .EXPORT Link_BeHarmed
+.EXPORT LinkColors_CommonCode
 .EXPORT MapScreenPosToPpuAddr
 .EXPORT MoveShot
 .EXPORT Negate
@@ -2805,6 +2806,7 @@ CommonCodeBlock_Bank1:
 .EXPORT SpriteRelativeExtents
 .EXPORT Sub1FromInt16At4
 .EXPORT SubQSpeedFromPositionFraction
+.EXPORT SwordDamagePoints
 .EXPORT TryTakeItem
 .EXPORT TryTakeRoomItem
 .EXPORT UpdateBombFlashEffect
@@ -4520,7 +4522,8 @@ TakeItem:
     LDA $0A
 
 SetItemValue:
-    STA Items, Y
+	JSR SetStartingWeaponTrampoline
+    ; STA Items, Y
 
 L6C28_Exit:
     RTS
@@ -4713,13 +4716,15 @@ HandleClass2:
     LDA $0A
     CMP Items, Y
     BCC L6D1B_Exit              ; If we have a higher grade of this kind of item, return.
-    STA Items, Y                ; Set the new item grade.
+    JSR SetStartingWeaponTrampoline
+	; STA Items, Y                ; Set the new item grade.
     CPY #$0B                    ; Ring item slot
     BNE L6D1B_Exit              ; If the item is not a ring, return.
 
     ; We took a ring. Change Link's color.
     LDX CurSaveSlot
-    LDY InvRing                 ; Get ring in inventory.
+    ; LDY InvRing                 ; Get ring in inventory.
+	JMP L6D1B_Exit					; rings no longer change color
     LDA LinkColors_CommonCode, Y    ; Get the color for this ring value.
     LDY SaveSlotToPaletteRowOffset, X    ; Get the offset of row 4, 5, or 6, depending on save slot.
     STA MenuPalettesTransferBuf+20, Y    ; Patch the color into the menu palette.
@@ -6167,7 +6172,7 @@ L7595_Exit:
     RTS
 
 SwordDamagePoints:
-    .BYTE $10, $20, $40
+    .BYTE $10, $20, $10
 
 ; Params:
 ; X: monster slot
@@ -6192,8 +6197,11 @@ CheckMonsterSwordCollision:
     BNE L7595_Exit
 
     ; Look up and set the damage points for the sword type.
-    LDY Items
-    LDA SwordDamagePoints-1, Y
+    ; LDY Items
+    ; LDA SwordDamagePoints-1, Y
+	JSR DetermineSwordDamageTrampoline
+	LDA $0D
+	NOP
 
 ; Params:
 ; A: damage points
@@ -6336,7 +6344,7 @@ ParryOrShove:
     BEQ PlayParryTune
 :
     ; Else shove the monster.
-    JMP BeginShoveTrampoline
+    JMP SwordFlameOrStunTrampoline
 
 PlayParryTune:
     LDA #$01
@@ -6700,9 +6708,11 @@ BeginShove:
 @Exit2:
     RTS
 
-Filler_7751:
 
-BeginShoveTrampoline:
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+SwordFlameOrStunTrampoline:
 
 	JSR BeginShove
 
@@ -6714,15 +6724,94 @@ BeginShoveTrampoline:
 	PHA
 	
 	LDA #$05
-	JMP SwitchBank_Local1  ; Function in fixed bank.
+	JMP SwitchBank_Local1
+
+
+
+
+
+DetermineSwordDamageTrampoline:
+
+	LDA #$04
+	PHA	
+	LDA #>(DetermineSwordDamage - 1)
+	PHA
+	LDA #<(DetermineSwordDamage - 1)
+	PHA
 	
+	LDA #$05
+	JMP SwitchBank_Local1
+
+
+
+
+
+SetStartingWeaponTrampoline:
+	STA Items, Y
+
+	LDA #$01
+	PHA	
+	LDA #>(SetStartingWeapon - 1)
+	PHA
+	LDA #<(SetStartingWeapon - 1)
+	PHA
 	
-    ; .BYTE $FF, $FF, $FF, $FF, $FF, $FF, $FF, $FF
-    ; .BYTE $FF, $FF, $FF, $FF, $FF, $FF, $FF, $FF
-    ; .BYTE $FF, $FF, $FF, $FF
+	LDA #$05
+	JMP SwitchBank_Local1
+
+
+
+
+
+HandleShotBlockedBook:
+	; rod only produces flame when:
+		; rod was not chosen at start
+		; rod was chosen and ActiveMagic == $01
+	LDA StartingWeapon
+	CMP #$01
+	BEQ @StartedWithRod
 	
-    .BYTE $FF, $FF, $FF, $FF, $FF, $FF, $FF, $FF
-	.BYTE $FF, $FF, $FF
+	; did not start with rod
+	LDA #$00	
+	RTS
+	
+@StartedWithRod:
+	LDA ActiveMagic
+	CMP #$01
+	
+@Exit:
+	; if zero flag is set, produce a flame
+	RTS
+
+
+
+
+
+PlaceWeaponHijack:
+
+    LDA ObjState, X
+	CMP #$80
+	BNE @Exit				; is a magic shot being produced?
+
+	LDA BookSelected
+	CMP #$01
+	BNE @Exit				; is the fire book selected?
+
+	; activate magic and subtract rupees
+	LDA #$01
+	CMP InvRupees
+	BEQ @JustEnough
+	BCS @Exit
+
+@JustEnough:
+	STA RupeesToSubtract
+	INC ActiveMagic
+
+@Exit:
+	LDA #$10
+	JMP PlaceWeapon
+	
+
 
 .SEGMENT "BANK_01_ISR"
 
