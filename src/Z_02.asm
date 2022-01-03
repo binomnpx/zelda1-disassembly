@@ -2560,7 +2560,7 @@ InitMode1_Sub1:
     LDA #$00
     STA CurSaveSlot
     JSR FetchFileAAddressSet
-    LDY #$0B                    ; The ring is at this offset in Items block.
+    LDY #$22                    ; The ~~ring~~ starting weapon is at this offset in Items block.
     LDX #$00                    ; The offset to the byte we want to change in a palette.
 
 @LoopSlot:
