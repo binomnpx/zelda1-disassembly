@@ -6749,6 +6749,18 @@ DetermineSwordDamageTrampoline:
 SetStartingWeaponTrampoline:
 	STA Items, Y
 
+	CPY #$08
+	BEQ @Jump
+	
+	CPY #$00
+	BEQ @Jump
+
+	CPY #$03
+	BEQ @Jump
+
+	RTS
+
+@Jump:
 	LDA #$01
 	PHA	
 	LDA #>(SetStartingWeapon - 1)
