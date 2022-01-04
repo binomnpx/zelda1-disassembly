@@ -65,10 +65,11 @@
 .IMPORT Link_BeHarmed
 .IMPORT MapScreenPosToPpuAddr
 .IMPORT MoveShot
-.IMPORT PlaceWeapon
+.IMPORT PlaceWeaponHijack
 .IMPORT PlayBoomerangSfx
 .IMPORT PlayEffect
 .IMPORT PlaySample
+.IMPORT ResetObjStateHijack
 .IMPORT ReverseDirections
 .IMPORT SetBoomerangSpeed
 .IMPORT ShowLinkSpritesBehindHorizontalDoors
@@ -3620,7 +3621,7 @@ DeactivateLinkShot:
     LDX #$0E
 
 DeactivateShot:
-    JMP ResetObjState
+    JMP ResetObjStateHijack
 
 SetShotSpreadingState:
     ; MULTI: ObjDir -> ObjSwordShotNegativeOffset
@@ -4586,7 +4587,7 @@ UpdateSwordOrRod:
 SetUpWeaponWithState:
     STA ObjState, X
     LDA #$10
-    JSR PlaceWeapon
+    JSR PlaceWeaponHijack
 
     ; If the direction is horizontal, and X < $14 or >= $EC, then
     ; deactivate the shot object.

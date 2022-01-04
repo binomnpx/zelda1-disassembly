@@ -2696,7 +2696,7 @@ CommonCodeBlock_Bank1:
 .IMPORT SetStartingWeapon
 .IMPORT SetMMC1Control_Local5
 .IMPORT SwitchBank_Local5
-.IMPORT SwordFlameOrStun
+.IMPORT FlameOrStun
 
 ; Imports from RAM code bank 06
 
@@ -2714,6 +2714,7 @@ CommonCodeBlock_Bank1:
 .IMPORT MoveObject
 .IMPORT PatchAndCueLevelPalettesTransferAndAdvanceSubmode
 .IMPORT ResetMovingDir
+.IMPORT ResetObjState
 .IMPORT RunCrossRoomTasksAndBeginUpdateMode_PlayModesNoCellar
 .IMPORT SaveSlotToPaletteRowOffset
 .IMPORT SetShoveInfoWith0
@@ -2788,7 +2789,7 @@ CommonCodeBlock_Bank1:
 .EXPORT MoveShot
 .EXPORT Negate
 .EXPORT Person_Draw
-.EXPORT PlaceWeapon
+.EXPORT PlaceWeaponHijack
 .EXPORT PlaceWeaponForPlayerState
 .EXPORT PlaceWeaponForPlayerStateAndAnim
 .EXPORT PlaceWeaponForPlayerStateAndAnimAndWeaponState
@@ -2798,6 +2799,7 @@ CommonCodeBlock_Bank1:
 .EXPORT ResetCurSpriteIndex
 .EXPORT ResetRoomTileObjInfo
 .EXPORT ResetShoveInfoAndInvincibilityTimer
+.EXPORT ResetObjStateHijack
 .EXPORT ReverseDirections
 .EXPORT SetBoomerangSpeed
 .EXPORT ShowLinkSpritesBehindHorizontalDoors
@@ -2879,7 +2881,8 @@ World_ChangeRupees:
     DEC RupeesToSubtract
     DEC InvRupees               ; Subtract one rupee.
     LDA #$10                    ; Play the tune for this.
-    STA Tune0Request
+    ; STA Tune0Request
+	JSR FixMagicSound
 
 FormatStatusBarText:
     LDY #$28                    ; Copy transfer buf template for status bar text to dynamic buf.
@@ -6091,7 +6094,7 @@ CheckMonsterSwordShotOrMagicShotCollision:
 
 @CheckCollision:
     TYA
-    JSR CheckMonsterShotCollision
+    JSR CheckMonsterShotCollisionHijack
 
     ; If no collision, then return.
     LDA $06
@@ -6263,8 +6266,10 @@ CheckMonsterArrowOrRodCollision:
     CMP #$30
     BCC :+
     LDA #$01
-    STA $09                     ; [09] holds sword damage type
-    LDA #$20                    ; Pass $20 damage points.
+    ; STA $09                     ; [09] holds sword damage type
+    ; LDA #$20                    ; Pass $20 damage points.
+	JSR CorrectRodStabDamage
+	NOP
     BNE CheckMonsterStabbingCollision
 :
     ; We have an arrow. If it's no longer flying, then return.
@@ -6310,8 +6315,12 @@ CheckMonsterShotCollision:
     ; If the weapon is an arrow and the monster is Pol's Voice;
     ; then set HP to 0, and deal damage, even if the collision
     ; checking routine above dealt some. This way it dies for sure.
-    CPY #$12
-    BNE ParryOrShove
+	
+    ; CPY #$12
+    ; BNE ParryOrShove
+	JMP PolsVoiceHijack
+	NOP
+ReturnFromPolsVoiceHijack:
     LDA ObjType, X
     CMP #$16                    ; Pol's Voice
     BNE :+
@@ -6344,7 +6353,7 @@ ParryOrShove:
     BEQ PlayParryTune
 :
     ; Else shove the monster.
-    JMP SwordFlameOrStunTrampoline
+    JMP FlameOrStunTrampoline
 
 PlayParryTune:
     LDA #$01
@@ -6712,15 +6721,15 @@ BeginShove:
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-SwordFlameOrStunTrampoline:
+FlameOrStunTrampoline:
 
 	JSR BeginShove
 
 	LDA #$04
 	PHA	
-	LDA #>(SwordFlameOrStun - 1)
+	LDA #>(FlameOrStun - 1)
 	PHA
-	LDA #<(SwordFlameOrStun - 1)
+	LDA #<(FlameOrStun - 1)
 	PHA
 	
 	LDA #$05
@@ -6803,26 +6812,178 @@ PlaceWeaponHijack:
 
     LDA ObjState, X
 	CMP #$80
-	BNE @Exit				; is a magic shot being produced?
-
+	BNE @Exit					; is a magic shot being produced?
+	
 	LDA BookSelected
-	CMP #$01
-	BNE @Exit				; is the fire book selected?
+	CMP #$03
+	BEQ @Lightning				; lightning?
+	
+	CMP #$02
+	BEQ @Frost					; frost?
 
-	; activate magic and subtract rupees
+
+	CMP #$01
+	BNE @Exit
+	
+; fire
 	LDA #$01
 	CMP InvRupees
-	BEQ @JustEnough
+	BEQ @JustEnoughFire
 	BCS @Exit
 
-@JustEnough:
+@JustEnoughFire:
 	STA RupeesToSubtract
 	INC ActiveMagic
+	BNE @Exit
 
+@Lightning:
+	LDA #$04
+	CMP InvRupees
+	BEQ @JustEnoughLightning
+	BCS @Exit
+
+@JustEnoughLightning:
+	STA RupeesToSubtract
+	LDA #$03
+	STA ActiveMagic
+	BNE @Exit
+
+@Frost:
+	LDA #$02
+	CMP InvRupees
+	BEQ @JustEnoughFrost
+	BCS @Exit
+
+@JustEnoughFrost:
+	STA RupeesToSubtract
+	LDA #$02
+	STA ActiveMagic
+	
 @Exit:
 	LDA #$10
 	JMP PlaceWeapon
+
+
+
+
+
+ResetObjStateHijack:
+	; be sure to deactivate magic if rod is starting weapon and
+	; shot is ending
+	LDA StartingWeapon
+	CMP #$01
+	BNE @Exit
 	
+	LDA ActiveMagic
+	CMP #$03
+	BEQ @Lightning	
+	
+@Deactivate:
+	; no lightning
+	LDA #$00
+	STA ActiveMagic
+
+@Exit:
+	JMP ResetObjState
+
+@Lightning:
+	; this is for lightning
+	
+    LDA $06							; zero means no collision
+	BEQ @Deactivate
+	
+	; do not deactivate lightning
+	RTS
+
+
+
+
+
+; damage is in A and Y
+; need it in A at end
+; Y does not matter at end
+CheckMonsterShotCollisionHijack:
+
+; we are here to modify rod damage
+	LDA StartingWeapon
+	CMP #$01
+	BNE @Exit
+	
+	LDY #$40							; lightning
+    LDA ActiveMagic
+    CMP #$03
+    BEQ @Exit
+    LDY #$20							; frost
+    CMP #$02
+    BEQ @Exit
+    LDY #$10							; fire / no magic
+
+@Exit:
+	TYA
+	JMP CheckMonsterShotCollision
+
+
+
+
+; Y is weapon object slot
+PolsVoiceHijack:
+	CPY #$12
+	BEQ @ReturnFromPolsVoiceHijack
+
+	CPY #$0E
+	BNE @ParryOrShove
+	
+	; magic shot
+	LDA StartingWeapon
+	CMP #$01
+	BNE @ParryOrShove
+	
+	LDA ActiveMagic
+	CMP #$03
+	BNE @ParryOrShove
+	
+	; lightning
+	JMP DealDamage
+	
+
+@ReturnFromPolsVoiceHijack:
+	JMP ReturnFromPolsVoiceHijack
+	
+@ParryOrShove:
+; not able to pierce so we return to ParryOrShove
+	JMP ParryOrShove
+
+
+
+
+CorrectRodStabDamage:
+    STA $09                     ; [09] holds sword damage type
+	
+	LDA StartingWeapon
+	CMP #$01
+	BNE @SwordOrBow
+
+; started with rod
+	LDA #$10					; Pass $10 damage points.
+	RTS
+
+@SwordOrBow:
+    LDA #$20                    ; Pass $20 damage points.
+	RTS
+
+
+FixMagicSound:
+	LDA ActiveMagic
+	BEQ @NoMagic
+	LDA #$04
+	BNE @Exit
+
+@NoMagic:
+	LDA #$10
+@Exit:
+    STA Tune0Request
+	RTS
+
 
 
 .SEGMENT "BANK_01_ISR"

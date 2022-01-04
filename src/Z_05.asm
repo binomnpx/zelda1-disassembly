@@ -148,7 +148,7 @@
 .EXPORT RotateBook
 .EXPORT SetStartingWeapon
 .EXPORT SetupObjRoomBounds
-.EXPORT SwordFlameOrStun
+.EXPORT FlameOrStun
 .EXPORT UpdateDoors
 .EXPORT UpdateMenuAndMeters
 .EXPORT UpdateMode10Stairs_Full
@@ -8472,12 +8472,12 @@ WieldItemHijack:
 
 	; pressing B takes you here
 
-	; LDA StartingWeapon
-	; CMP #$01
-	; BEQ @RodMagic
+	LDA StartingWeapon
+	CMP #$01
+	BEQ @RodMagic
 	
-	; CMP #$03
-	; BEQ @BowMagic
+	CMP #$03
+	BEQ @BowMagic
 
 ;@Sword
 	LDA BookSelected
@@ -8523,13 +8523,13 @@ WieldItemHijack:
 	
 	LDA BookSelected
 	STA ActiveMagic
-	
-; @RodMagic:
 
-; @BowMagic:
-	
 @Exit:
 	RTS
+
+@RodMagic:
+
+@BowMagic:	
 
 @WieldItem:
 
@@ -8667,16 +8667,24 @@ DetermineSwordDamage:
 ; Y is weapon
 
 ; jump here from bank 1
-SwordFlameOrStun:
+FlameOrStun:
 	
 	; LDA $00						; If 0, Link is defending. So, check if he gets fire immunity.
 	; BEQ @Exit
 	
-	LDA $09						; If not sword, leave ($09 is damage type)
+	LDA $09							; ($09 is damage type)
+	
+	; CMP #$12
+	; BEQ @Arrow
+	
+	CMP #$0E
+	BEQ @Rod
+	
 	CMP #$01
 	BNE @Exit
-
-	LDA ActiveMagic				; no book selected, exit
+	
+; sword
+	LDA ActiveMagic				; no active magic, exit
 	BEQ @Exit
 	
 	CMP #$02						; blue book
@@ -8774,11 +8782,19 @@ SwordFlameOrStun:
 	PLA
 	JMP SwitchBank_Local5
 
+@Rod:
+; if stun is active, stun and reset
+	LDA ActiveMagic
+	CMP #$02
+	BNE @Exit
+	
+	LDA #$00
+	STA ActiveMagic
+
 @Stun:
     LDA #$10
     STA ObjStunTimer, X
 	BNE @Exit
-
 
 
 
