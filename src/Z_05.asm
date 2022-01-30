@@ -28,11 +28,14 @@
 .IMPORT InitModeB_EnterCave_Bank5
 .IMPORT LinkColors_CommonCode
 .IMPORT Negate
+.IMPORT ParryOrShove
+.IMPORT PlaceWeapon
 .IMPORT PlaceWeaponForPlayerState
 .IMPORT PlaceWeaponForPlayerStateAndAnim
 .IMPORT PlaceWeaponForPlayerStateAndAnimAndWeaponState
 .IMPORT PlayEffect
 .IMPORT PlaySample
+.IMPORT ReturnFromPolsVoiceHijack
 .IMPORT ResetCurSpriteIndex
 .IMPORT ResetRoomTileObjInfo
 .IMPORT ReverseDirections
@@ -98,6 +101,7 @@
 .IMPORT UpdateTriforcePositionMarker
 .IMPORT WieldFlute
 
+.EXPORT ActivateRodMagic
 .EXPORT AnimateAndDrawLinkBehindBackground
 .EXPORT CalculateNextRoomForDoor
 .EXPORT CalculateNoNextRoom
@@ -119,6 +123,7 @@
 .EXPORT FindAndSelectOccupiedItemSlot
 .EXPORT FindDoorTypeByDoorBit
 .EXPORT FindNextEdgeSpawnCell
+.EXPORT ForceFireArrowFlame
 .EXPORT HasCompass
 .EXPORT InitMode_EnterRoom
 .EXPORT InitMode10
@@ -149,6 +154,7 @@
 .EXPORT SetStartingWeapon
 .EXPORT SetupObjRoomBounds
 .EXPORT FlameOrStun
+.EXPORT TryLightningPierce
 .EXPORT UpdateDoors
 .EXPORT UpdateMenuAndMeters
 .EXPORT UpdateMode10Stairs_Full
@@ -2963,7 +2969,8 @@ WieldArrow:
     ; If there's no bow, return.
     LDA Bow
     BEQ WieldNothing
-
+	
+ForceArrow:
     ; Switch to the arrow slot.
     LDX #$12
 
@@ -2980,7 +2987,8 @@ WieldArrow:
     JSR PlayEffect
 
     ; Post a rupee to subtract.
-    INC RupeesToSubtract
+    ; INC RupeesToSubtract
+	JSR HandleArrowCost
 
     ; Arrows start in state $10.
     LDA #$10
@@ -8462,7 +8470,19 @@ WieldSwordHijack:
 	JMP WieldRod
 	
 @Bow:
-	JMP WieldArrow
+    ; If state <> 0 and high bit is clear, return (nothing happens).
+    LDX #$12
+    LDA ObjState, X
+    BEQ :+
+    ASL
+    BCC @Exit
+:
+	LDA #$00
+	STA ActiveMagic
+	JMP ForceArrow
+	
+@Exit:
+	RTS
 	
 	
 
@@ -8472,16 +8492,20 @@ WieldItemHijack:
 
 	; pressing B takes you here
 
+	LDA BookSelected
+	BEQ @WieldItem
+
 	LDA StartingWeapon
-	CMP #$01
-	BEQ @RodMagic
 	
 	CMP #$03
 	BEQ @BowMagic
+	
+	CMP #$01
+	BEQ @RodMagic
 
-;@Sword
-	LDA BookSelected
-	BEQ @WieldItem
+
+;@SwordMagic
+
 	
 	LDA ActiveMagic
 	BNE @Exit
@@ -8527,9 +8551,59 @@ WieldItemHijack:
 @Exit:
 	RTS
 
+@BowMagic:
+    ; If state <> 0 and high bit is clear, return (nothing happens).
+    LDX #$12
+    LDA ObjState, X
+    BEQ :+
+    ASL
+    BCC @Exit
+:
+	LDA BookSelected
+	CMP #$03
+	BEQ @LightningBow			; lightning?
+	
+	CMP #$02
+	BEQ @FrostBow				; frost?
+	
+	
+	
+;@FireBow:
+	LDA #$01
+	CMP InvRupees
+	BCS @Exit
+	LDA #$02
+	BNE @RupeeExit
+
+	
+	
+@LightningBow:
+	LDA #$07
+	CMP InvRupees
+	BCS @Exit
+	LDA #$08
+	BNE @RupeeExit
+
+
+
+@FrostBow:
+	LDA #$03
+	CMP InvRupees
+	BCS @Exit
+	LDA #$04
+	
+
+@RupeeExit:
+	STA RupeesToSubtract
+	LDA BookSelected
+	STA ActiveMagic
+	
+@ForceArrow:
+	JMP ForceArrow
+
+
 @RodMagic:
 
-@BowMagic:	
 
 @WieldItem:
 
@@ -8573,6 +8647,22 @@ ResetPlayerStateHijack:
 
 ; jump here from bank 1
 SetStartingWeapon:
+
+
+	; CPY #$08
+	; BEQ @IsStartingWeapon
+	
+	; CPY #$00
+	; BEQ @IsStartingWeapon
+
+	; CPY #$03
+	; BNE @Exit
+
+; @IsStartingWeapon:
+
+	LDA ItemLiftTimer
+	BEQ @NotLifting
+
 	; initialized data when your first "liftable" item is picked up
 	; supposed to happen in "take this" cave
 
@@ -8596,7 +8686,7 @@ SetStartingWeapon:
 	INC InvKeys
 	DEC Bow							; remove bow
 	INC Items						; add wooden sword
-	BNE @Exit
+	BNE @SetStartingWeaponColor
 
 
 @Rod:
@@ -8621,11 +8711,30 @@ SetStartingWeapon:
     STA MenuPalettesTransferBuf+20, Y    ; Patch the color into the menu palette.
     JSR PatchAndCueLevelPalettesTransferAndAdvanceSubmode    ; Then patch the color into the level's palette.
 
+@SetStartingWeaponColor:
+	LDA #$02						; red
+	STA StartingWeaponColor
+	
+	LDA StartingWeapon
+	CMP #$02
+	BEQ @Exit
+	
+	
+	DEC StartingWeaponColor			; white
+	CMP #$01
+	BEQ @Exit
+	
+	
+	DEC StartingWeaponColor			; green
+
 @Exit:
-	PLA
+	LDA #$01
 	JMP SwitchBank_Local5
 
-
+@NotLifting:
+	LDA #$04
+	JMP SwitchBank_Local5
+	
 
 
 
@@ -8655,7 +8764,7 @@ DetermineSwordDamage:
 	
 @Done:
 	STA $0D						; place byte here to survive the bank switch
-	PLA
+	LDA #$04
 	JMP SwitchBank_Local5
 
 
@@ -8668,34 +8777,288 @@ DetermineSwordDamage:
 
 ; jump here from bank 1
 FlameOrStun:
-	
-	; LDA $00						; If 0, Link is defending. So, check if he gets fire immunity.
-	; BEQ @Exit
+; flame or stun for sword
+; stun for rod
 	
 	LDA $09							; ($09 is damage type)
 	
-	; CMP #$12
-	; BEQ @Arrow
-	
-	CMP #$0E
-	BEQ @Rod
-	
 	CMP #$01
+	BEQ @Sword
+	
+	CMP #$0E						; try to stun if rod
 	BNE @Exit
 	
-; sword
+; if stun is active, reset and stun
+	LDA ActiveMagic
+	CMP #$02
+	BNE @Exit
+	
+	LDA #$00
+	STA ActiveMagic
+
+@Stun:
+    LDA #$10
+    STA ObjStunTimer, X
+	
+@Exit:
+	LDA #$04
+	JMP SwitchBank_Local5
+
+@Sword:
+
+	CPY #$08
+	BEQ @Exit					; rod does sword damage but we do not want to create a flame
+
 	LDA ActiveMagic				; no active magic, exit
 	BEQ @Exit
 	
 	CMP #$02						; blue book
 	BEQ @Stun
 	
-	CMP #$03						; green book
+	CMP #$03						; green book (not handled here)
 	BEQ @Exit
 	
-									; red book
+; red book
 
 	TYA							; store weapon on stack
+	PHA
+	
+    LDA ObjState
+    PHA
+    LDA UsedCandle
+    PHA
+    LDA #$00
+    STA UsedCandle
+    JSR WieldCandle
+    PLA
+    STA UsedCandle
+    PLA
+    STA ObjState
+	
+
+    LDA SongRequest + 3
+	AND %11111110
+    STA SongRequest + 3
+	
+	PLA							; restore weapon from stack
+	TAY							; place weapon in Y
+
+    ; State $21 means that a moving fire was just made.
+    ;
+    ; If it's any another value, then we didn't find an empty slot
+    ; to make a fire. In this case, exit.
+    LDA ObjState, X
+    CMP #$21
+    BNE @Exit
+
+    ; Make state $22 for a standing fire.
+    INC ObjState, X
+
+    ; The fire lasts $4F frames.
+    LDA #$4F
+    STA ObjTimer, X
+
+    ; Copy the weapon's position and direction to the fire.
+	; add distance so link doesn't burn himself
+	
+	; figure out direction and adjust
+	; right = $01, left = $02, up = $08, down = $04
+	
+    LDA ObjX, Y
+    STA ObjX, X
+    LDA ObjY, Y
+    STA ObjY, X
+	
+; adjust flame to appear at end of sword
+    LDA ObjDir, Y
+	
+	CMP #$01
+	BEQ @Right
+	
+	CMP #$02
+	BEQ @Left
+	
+	CMP #$08
+	BEQ @Up
+	
+; @Down:
+    LDA ObjY, Y
+	CLC
+	ADC #$08
+    STA ObjY, X
+	BNE @Exit
+
+@Right:
+    LDA ObjX, Y
+	CLC
+	ADC #$08
+    STA ObjX, X
+	BNE @Exit
+	
+
+@Left:
+    LDA ObjX, Y
+	CLC
+	SBC #$08
+    STA ObjX, X
+	BNE @Exit
+
+@Up:
+    LDA ObjY, Y
+	CLC
+	SBC #$08
+    STA ObjY, X
+
+; @Exit:
+	LDA #$04
+	JMP SwitchBank_Local5
+
+
+
+
+
+ActivateRodMagic:
+    LDA ObjState, X
+	CMP #$80
+	BNE @Exit					; is a magic shot being produced?
+	
+	LDA #$00
+	STA ActiveMagic
+	
+	LDA BookSelected
+	CMP #$03
+	BEQ @LightningRod				; lightning?
+	
+	CMP #$02
+	BEQ @FrostRod					; frost?
+
+
+	CMP #$01
+	BNE @Exit
+	
+	
+	
+;@FireRod:
+	LDA #$00
+	CMP InvRupees
+	BCS @Exit
+
+	INC ActiveMagic
+	LDA #$01
+	BNE @RupeeExit
+
+
+
+@LightningRod:
+	LDA #$03
+	CMP InvRupees
+	BCS @Exit
+
+	LDA #$03
+	STA ActiveMagic
+	LDA #$04
+	BNE @RupeeExit
+
+
+
+@FrostRod:
+	LDA #$01
+	CMP InvRupees
+	BCS @Exit
+
+	LDA #$02
+	STA ActiveMagic
+
+
+
+@RupeeExit:
+	STA RupeesToSubtract
+
+
+	
+@Exit:
+
+	LDA #$10
+	JSR PlaceWeapon
+
+	LDA #$07
+	JMP SwitchBank_Local5
+
+
+
+
+TryLightningPierce:
+	CPY #$12
+	BEQ @Arrow
+
+	CPY #$0E
+	BNE @ParryOrShove
+	
+	; magic shot
+	LDA StartingWeapon
+	CMP #$01
+	BNE @ParryOrShove
+	
+	LDA ActiveMagic
+	CMP #$03
+	BNE @ParryOrShove
+	BEQ @Lightning
+	
+@Arrow:
+	LDA StartingWeapon
+	CMP #$03
+	BNE @ReturnFromPolsVoiceHijack
+	
+	LDA ActiveMagic
+	CMP #$03
+	BNE @ReturnFromPolsVoiceHijack
+	
+@Lightning:
+	; lightning
+	
+	LDA #>(ParryOrShove - 1)
+	PHA
+	LDA #<(ParryOrShove - 1)
+	PHA
+	
+	LDA #$04
+	JMP SwitchBank_Local5
+	
+	
+
+@ReturnFromPolsVoiceHijack:
+	LDA #>(ReturnFromPolsVoiceHijack - 1)
+	PHA
+	LDA #<(ReturnFromPolsVoiceHijack - 1)
+	PHA
+	
+	LDA #$04
+	JMP SwitchBank_Local5
+	
+@ParryOrShove:
+; not able to pierce so we return to ParryOrShove
+	LDA #>(ParryOrShove - 1)
+	PHA
+	LDA #<(ParryOrShove - 1)
+	PHA
+	
+	LDA #$04
+	JMP SwitchBank_Local5
+
+
+ForceFireArrowFlame:
+
+	TXA
+	PHA
+	TYA
+	PHA
+
+	LDA ActiveMagic				; if no fire magic active, exit
+	CMP #$01
+	BNE @Exit
+
+
+	TXA							; store weapon on stack
 	PHA
 	
     LDA ObjState
@@ -8738,65 +9101,26 @@ FlameOrStun:
     STA ObjX, X
     LDA ObjY, Y
     STA ObjY, X
-	
-    LDA ObjDir, Y
-	
-	CMP #$01
-	BEQ @Right
-	
-	CMP #$02
-	BEQ @Left
-	
-	CMP #$08
-	BEQ @Up
-	
-; @Down:
-    LDA ObjY, Y
-	CLC
-	ADC #$08
-    STA ObjY, X
-	BNE @Exit
-
-@Right:
-    LDA ObjX, Y
-	CLC
-	ADC #$08
-    STA ObjX, X
-	BNE @Exit
-	
-
-@Left:
-    LDA ObjX, Y
-	CLC
-	SBC #$08
-    STA ObjX, X
-	BNE @Exit
-
-@Up:
-    LDA ObjY, Y
-	CLC
-	SBC #$08
-    STA ObjY, X
 
 @Exit:
 	PLA
+	TAY
+	PLA
+	TAX
+
+	LDA #$04
 	JMP SwitchBank_Local5
 
-@Rod:
-; if stun is active, stun and reset
-	LDA ActiveMagic
-	CMP #$02
-	BNE @Exit
+
+HandleArrowCost:
+	LDA StartingWeapon
+	CMP #$03
+	BNE @NormalArrow
+	RTS
 	
-	LDA #$00
-	STA ActiveMagic
-
-@Stun:
-    LDA #$10
-    STA ObjStunTimer, X
-	BNE @Exit
-
-
+@NormalArrow:
+	INC RupeesToSubtract
+	RTS
 
 
 

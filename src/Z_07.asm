@@ -35,6 +35,7 @@
 
 .IMPORT _CalcDiagonalSpeedIndex
 .IMPORT Abs
+.IMPORT ActivateRodMagicTrampoline
 .IMPORT Add1ToInt16At0
 .IMPORT AddQSpeedToPositionFraction
 .IMPORT Anim_SetSpriteDescriptorAttributes
@@ -65,7 +66,6 @@
 .IMPORT Link_BeHarmed
 .IMPORT MapScreenPosToPpuAddr
 .IMPORT MoveShot
-.IMPORT PlaceWeaponHijack
 .IMPORT PlayBoomerangSfx
 .IMPORT PlayEffect
 .IMPORT PlaySample
@@ -74,6 +74,7 @@
 .IMPORT SetBoomerangSpeed
 .IMPORT ShowLinkSpritesBehindHorizontalDoors
 .IMPORT SubQSpeedFromPositionFraction
+.IMPORT TryFireArrow
 .IMPORT TryTakeRoomItem
 .IMPORT UpdateBombFlashEffect
 .IMPORT UpdatePlayerPositionMarker
@@ -4054,7 +4055,7 @@ CheckState20:
     BNE HandleArrowOrBoomerangBlocked
 
 @Deactivate:
-    JSR ResetObjState
+    JSR ResetObjStateHijack
 
     ; If it's a monster's arrow, then destroy it in the monster slot,
     ; including clearing object type.
@@ -4374,7 +4375,8 @@ L_DrawArrowOrBoomerang:
     JSR Anim_SetSpriteDescriptorAttributes
 
 @Draw:
-    JMP Anim_WriteItemSprites
+    ; JMP Anim_WriteItemSprites
+	JMP TryFireArrow
 
 UpdateRodOrArrow:
     ; The rod uses states $3x. Arrow uses $1x and $2x.
@@ -4587,7 +4589,7 @@ UpdateSwordOrRod:
 SetUpWeaponWithState:
     STA ObjState, X
     LDA #$10
-    JSR PlaceWeaponHijack
+    JSR ActivateRodMagicTrampoline
 
     ; If the direction is horizontal, and X < $14 or >= $EC, then
     ; deactivate the shot object.

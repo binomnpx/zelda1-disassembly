@@ -2689,13 +2689,16 @@ CommonCodeBlock_Bank1:
 
 ; Imports from program bank 05
 
+.IMPORT ActivateRodMagic
 .IMPORT CopyColumnToTileBuf
 .IMPORT DetermineSwordDamage
+.IMPORT ForceFireArrowFlame
 .IMPORT InitMode_EnterRoom
 .IMPORT ResetInvObjState
 .IMPORT SetStartingWeapon
 .IMPORT SetMMC1Control_Local5
 .IMPORT SwitchBank_Local5
+.IMPORT TryLightningPierce
 .IMPORT FlameOrStun
 
 ; Imports from RAM code bank 06
@@ -2719,9 +2722,11 @@ CommonCodeBlock_Bank1:
 .IMPORT SaveSlotToPaletteRowOffset
 .IMPORT SetShoveInfoWith0
 .IMPORT UpdateDeadDummy
+.IMPORT UpdateArrowOrBoomerang
 
 .EXPORT _CalcDiagonalSpeedIndex
 .EXPORT Abs
+.EXPORT ActivateRodMagicTrampoline
 .EXPORT Add1ToInt16At0
 .EXPORT Add1ToInt16At2
 .EXPORT Add1ToInt16At4
@@ -2788,14 +2793,16 @@ CommonCodeBlock_Bank1:
 .EXPORT MapScreenPosToPpuAddr
 .EXPORT MoveShot
 .EXPORT Negate
+.EXPORT ParryOrShove
 .EXPORT Person_Draw
-.EXPORT PlaceWeaponHijack
+.EXPORT PlaceWeapon
 .EXPORT PlaceWeaponForPlayerState
 .EXPORT PlaceWeaponForPlayerStateAndAnim
 .EXPORT PlaceWeaponForPlayerStateAndAnimAndWeaponState
 .EXPORT PlayBoomerangSfx
 .EXPORT PlayEffect
 .EXPORT PlaySample
+.EXPORT ReturnFromPolsVoiceHijack
 .EXPORT ResetCurSpriteIndex
 .EXPORT ResetRoomTileObjInfo
 .EXPORT ResetShoveInfoAndInvincibilityTimer
@@ -2809,6 +2816,7 @@ CommonCodeBlock_Bank1:
 .EXPORT Sub1FromInt16At4
 .EXPORT SubQSpeedFromPositionFraction
 .EXPORT SwordDamagePoints
+.EXPORT TryFireArrow
 .EXPORT TryTakeItem
 .EXPORT TryTakeRoomItem
 .EXPORT UpdateBombFlashEffect
@@ -5984,7 +5992,8 @@ HandleMonsterWeaponCollision:
 DealDamage:
     ; Play the "harmed" sound.
     LDA #$02
-    STA Tune0Request
+    ; STA Tune0Request
+	JSR FixArrowSound
 
     ; Subtract the damage points from HP; if damage points >= HP,
     ; then go handle the monster dying.
@@ -6287,8 +6296,10 @@ CheckMonsterArrowOrRodCollision:
     BEQ :+
     ASL
 :
-    LDY #$0B
-    STY $0D                     ; [0D] holds collision threshold $B
+    ; LDY #$0B
+    ; STY $0D                     ; [0D] holds collision threshold $B
+	JSR ModifyArrowDamage
+	NOP
 
 ; Params:
 ; A: damage points
@@ -6725,8 +6736,6 @@ FlameOrStunTrampoline:
 
 	JSR BeginShove
 
-	LDA #$04
-	PHA	
 	LDA #>(FlameOrStun - 1)
 	PHA
 	LDA #<(FlameOrStun - 1)
@@ -6740,9 +6749,6 @@ FlameOrStunTrampoline:
 
 
 DetermineSwordDamageTrampoline:
-
-	LDA #$04
-	PHA	
 	LDA #>(DetermineSwordDamage - 1)
 	PHA
 	LDA #<(DetermineSwordDamage - 1)
@@ -6758,20 +6764,7 @@ DetermineSwordDamageTrampoline:
 SetStartingWeaponTrampoline:
 	STA Items, Y
 
-	CPY #$08
-	BEQ @Jump
-	
-	CPY #$00
-	BEQ @Jump
-
-	CPY #$03
-	BEQ @Jump
-
-	RTS
-
 @Jump:
-	LDA #$01
-	PHA	
 	LDA #>(SetStartingWeapon - 1)
 	PHA
 	LDA #<(SetStartingWeapon - 1)
@@ -6808,80 +6801,25 @@ HandleShotBlockedBook:
 
 
 
-PlaceWeaponHijack:
-
-    LDA ObjState, X
-	CMP #$80
-	BNE @Exit					; is a magic shot being produced?
+ActivateRodMagicTrampoline:
+	LDA #>(ActivateRodMagic - 1)
+	PHA
+	LDA #<(ActivateRodMagic - 1)
+	PHA
 	
-	LDA BookSelected
-	CMP #$03
-	BEQ @Lightning				; lightning?
-	
-	CMP #$02
-	BEQ @Frost					; frost?
-
-
-	CMP #$01
-	BNE @Exit
-	
-; fire
-	LDA #$01
-	CMP InvRupees
-	BEQ @JustEnoughFire
-	BCS @Exit
-
-@JustEnoughFire:
-	STA RupeesToSubtract
-	INC ActiveMagic
-	BNE @Exit
-
-@Lightning:
-	LDA #$04
-	CMP InvRupees
-	BEQ @JustEnoughLightning
-	BCS @Exit
-
-@JustEnoughLightning:
-	STA RupeesToSubtract
-	LDA #$03
-	STA ActiveMagic
-	BNE @Exit
-
-@Frost:
-	LDA #$02
-	CMP InvRupees
-	BEQ @JustEnoughFrost
-	BCS @Exit
-
-@JustEnoughFrost:
-	STA RupeesToSubtract
-	LDA #$02
-	STA ActiveMagic
-	
-@Exit:
-	LDA #$10
-	JMP PlaceWeapon
+	LDA #$05
+	JMP SwitchBank_Local1
 
 
 
 
 
 ResetObjStateHijack:
-	; be sure to deactivate magic if rod is starting weapon and
-	; shot is ending
-	LDA StartingWeapon
-	CMP #$01
-	BNE @Exit
-	
+	; do not deactivte arrow or magic shot if
+	; object is colliding with a monster and lightning is active
 	LDA ActiveMagic
 	CMP #$03
-	BEQ @Lightning	
-	
-@Deactivate:
-	; no lightning
-	LDA #$00
-	STA ActiveMagic
+	BEQ @Lightning
 
 @Exit:
 	JMP ResetObjState
@@ -6889,8 +6827,12 @@ ResetObjStateHijack:
 @Lightning:
 	; this is for lightning
 	
+
+    CPX #$0D
+    BCC @Exit						; this is a monster's arrow
+	
     LDA $06							; zero means no collision
-	BEQ @Deactivate
+	BEQ @Exit
 	
 	; do not deactivate lightning
 	RTS
@@ -6927,31 +6869,15 @@ CheckMonsterShotCollisionHijack:
 
 ; Y is weapon object slot
 PolsVoiceHijack:
-	CPY #$12
-	BEQ @ReturnFromPolsVoiceHijack
-
-	CPY #$0E
-	BNE @ParryOrShove
+	; LDA #$01
+	; PHA	
+	LDA #>(TryLightningPierce - 1)
+	PHA
+	LDA #<(TryLightningPierce - 1)
+	PHA
 	
-	; magic shot
-	LDA StartingWeapon
-	CMP #$01
-	BNE @ParryOrShove
-	
-	LDA ActiveMagic
-	CMP #$03
-	BNE @ParryOrShove
-	
-	; lightning
-	JMP DealDamage
-	
-
-@ReturnFromPolsVoiceHijack:
-	JMP ReturnFromPolsVoiceHijack
-	
-@ParryOrShove:
-; not able to pierce so we return to ParryOrShove
-	JMP ParryOrShove
+	LDA #$05
+	JMP SwitchBank_Local1
 
 
 
@@ -6972,20 +6898,113 @@ CorrectRodStabDamage:
 	RTS
 
 
-FixMagicSound:
-	LDA ActiveMagic
-	BEQ @NoMagic
-	LDA #$04
-	BNE @Exit
 
-@NoMagic:
+
+FixMagicSound:
+	
+    LDA ObjState + 14
+	BNE @Exit					; do not write sound if magic shot is active
+	LDA ObjState + 18
+	BNE @Exit					; do not write sound if rod is active
 	LDA #$10
-@Exit:
     STA Tune0Request
+
+@Exit:
 	RTS
 
 
 
+
+	
+FixArrowSound:
+; arrows sometimes make the wrong sound when enemy dies...
+; this actually works!
+
+	CPY #$12
+	BNE @ExitAsNormal
+	
+    LDA ObjHP, X
+	BNE @ExitAsNormal
+	RTS							; return without writing the "DealDamage" sound	
+	
+	
+@ExitAsNormal:
+	LDA #$02
+	STA Tune0Request
+	RTS
+	
+	
+	
+ModifyArrowDamage:
+; we are here to modify arrow damage
+; if bow was chosen at start, damage is determined by ActiveMagic
+; if rod or sword were chosen, damage is normal
+	TAY									; put damage in Y
+	LDA StartingWeapon
+	CMP #$03
+	BNE @Exit
+	
+	LDY #$40							; lightning
+    LDA ActiveMagic
+    CMP #$03
+    BEQ @Exit
+    LDY #$20							; frost
+    CMP #$02
+    BEQ @Exit
+    LDY #$10							; fire / no magic
+
+@Exit:
+	TYA
+    LDY #$0B
+    STY $0D                     ; this needs to be done since it was overwritten for the JSR
+	RTS
+
+
+TryFireArrow:
+
+	TYA
+	PHA
+
+	JSR Anim_WriteItemSprites
+
+	PLA
+	TAY
+
+    CPX #$0D
+    BCC @Exit
+	
+    LDA ObjState, X
+    AND #$F0
+    CMP #$20
+	BNE @Exit
+	
+
+	LDA StartingWeapon
+	CMP #$03
+	BNE @Exit
+	LDA ActiveMagic
+	CMP #$01
+	BNE @Exit
+
+
+	LDA #$00
+	STA ObjState, X
+
+	LDA #>(ForceFireArrowFlame - 1)
+	PHA
+	LDA #<(ForceFireArrowFlame - 1)
+	PHA
+	
+	LDA #$05
+	JMP SwitchBank_Local1
+	
+@Exit:
+	RTS
+	
+	
+
+	
+	
 .SEGMENT "BANK_01_ISR"
 
 

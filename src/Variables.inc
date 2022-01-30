@@ -265,6 +265,7 @@ InvMagicShield := $676
 BookSelected := $677
 ActiveMagic:= $678
 StartingWeapon := $679
+StartingWeaponColor := $67A
 MaxBombs := $67C
 RupeesToAdd := $67D
 RupeesToSubtract := $67E
