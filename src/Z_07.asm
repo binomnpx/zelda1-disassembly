@@ -4589,6 +4589,7 @@ UpdateSwordOrRod:
 SetUpWeaponWithState:
     STA ObjState, X
     LDA #$10
+	; JSR PlaceWeapon
     JSR ActivateRodMagicTrampoline
 
     ; If the direction is horizontal, and X < $14 or >= $EC, then

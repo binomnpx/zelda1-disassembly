@@ -8806,7 +8806,11 @@ FlameOrStun:
 
 @Sword:
 
-	CPY #$08
+	LDA StartingWeapon
+	CMP #$02
+	BNE @Exit					; sword only makes flame or stuns if chosen at beginning
+
+	CPY #$12					; i found this ID in CheckMonsterShotCollision: in Z_01.asm
 	BEQ @Exit					; rod does sword damage but we do not want to create a flame
 
 	LDA ActiveMagic				; no active magic, exit
@@ -8901,7 +8905,7 @@ FlameOrStun:
 	CLC
 	SBC #$08
     STA ObjX, X
-	BNE @Exit
+	BNE @Exit2
 
 @Up:
     LDA ObjY, Y
@@ -8909,7 +8913,7 @@ FlameOrStun:
 	SBC #$08
     STA ObjY, X
 
-; @Exit:
+@Exit2:
 	LDA #$04
 	JMP SwitchBank_Local5
 
@@ -8918,12 +8922,17 @@ FlameOrStun:
 
 
 ActivateRodMagic:
+
+	LDA StartingWeapon
+	CMP #$01
+	BNE @Exit
+
     LDA ObjState, X
 	CMP #$80
 	BNE @Exit					; is a magic shot being produced?
 	
 	LDA #$00
-	STA ActiveMagic
+	STA ActiveMagic				; reset magic
 	
 	LDA BookSelected
 	CMP #$03
