@@ -116,7 +116,6 @@
 .EXPORT ClearRam
 .EXPORT CopyColumnToTileBuf
 .EXPORT CreateRoomObjects
-.EXPORT DetermineSwordDamage
 .EXPORT DrawItemInInventoryWithX
 .EXPORT DrawLinkBetweenRooms
 .EXPORT FetchTileMapAddr
@@ -8734,41 +8733,6 @@ SetStartingWeapon:
 @NotLifting:
 	LDA #$04
 	JMP SwitchBank_Local5
-	
-
-
-
-
-; jump here from bank 1
-DetermineSwordDamage:
-	; gets the correct sword damage per sword
-	; gets correct sword damage per ActiveMagic
-
-	LDA ActiveMagic
-	BEQ @NoMagic
-	
-	TAY
-	
-	LDA #$10					; fire magic
-    CPY #$01
-    BEQ @Done
-    LDA #$20					; frost magic
-    CPY #$02
-    BEQ @Done
-    LDA #$40					; lightning magic
-	BNE @Done
-	
-@NoMagic:
-    LDY Items
-    LDA SwordDamagePoints-1, Y
-	
-@Done:
-	STA $0D						; place byte here to survive the bank switch
-	LDA #$04
-	JMP SwitchBank_Local5
-
-
-
 
 
 
@@ -8780,27 +8744,35 @@ FlameOrStun:
 ; flame or stun for sword
 ; stun for rod
 	
-	LDA $09							; ($09 is damage type)
+	TXA					; store X, restore just before exiting, this fixes the moldorm glitch
+	PHA
+
 	
-	CMP #$01
+	CPY #$0D
 	BEQ @Sword
 	
-	CMP #$0E						; try to stun if rod
+	CPY #$12							; arrow
+	BEQ @ArrowOrRod
+	
+	CPY #$0E							; rod
 	BNE @Exit
 	
-; if stun is active, reset and stun
+@ArrowOrRod:
+
+; if stun is active, stun
 	LDA ActiveMagic
 	CMP #$02
 	BNE @Exit
-	
-	LDA #$00
-	STA ActiveMagic
 
 @Stun:
     LDA #$10
     STA ObjStunTimer, X
 	
 @Exit:
+
+	PLA							; restore X
+	TAX
+	
 	LDA #$04
 	JMP SwitchBank_Local5
 
@@ -8914,6 +8886,10 @@ FlameOrStun:
     STA ObjY, X
 
 @Exit2:
+
+	PLA							; restore X
+	TAX
+
 	LDA #$04
 	JMP SwitchBank_Local5
 

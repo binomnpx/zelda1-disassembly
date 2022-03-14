@@ -2691,7 +2691,6 @@ CommonCodeBlock_Bank1:
 
 .IMPORT ActivateRodMagic
 .IMPORT CopyColumnToTileBuf
-.IMPORT DetermineSwordDamage
 .IMPORT ForceFireArrowFlame
 .IMPORT InitMode_EnterRoom
 .IMPORT ResetInvObjState
@@ -6184,7 +6183,7 @@ L7595_Exit:
     RTS
 
 SwordDamagePoints:
-    .BYTE $10, $20, $10
+    .BYTE $10, $20, $40
 
 ; Params:
 ; X: monster slot
@@ -6210,10 +6209,8 @@ CheckMonsterSwordCollision:
 
     ; Look up and set the damage points for the sword type.
     ; LDY Items
-    ; LDA SwordDamagePoints-1, Y
-	JSR DetermineSwordDamageTrampoline
-	LDA $0D
-	NOP
+	JSR DetermineSwordDamage
+    LDA SwordDamagePoints-1, Y
 
 ; Params:
 ; A: damage points
@@ -6735,6 +6732,16 @@ BeginShove:
 FlameOrStunTrampoline:
 
 	JSR BeginShove
+	
+	
+	CLC
+	LDA ObjType+1
+    CMP #$4B
+    BCC @NormalObject
+	
+	RTS								; skip if old man
+	
+@NormalObject:
 
 	LDA #>(FlameOrStun - 1)
 	PHA
@@ -6748,14 +6755,25 @@ FlameOrStunTrampoline:
 
 
 
-DetermineSwordDamageTrampoline:
-	LDA #>(DetermineSwordDamage - 1)
-	PHA
-	LDA #<(DetermineSwordDamage - 1)
-	PHA
+DetermineSwordDamage:
+	; gets the correct sword damage per sword
+	; gets correct sword damage per ActiveMagic
 	
-	LDA #$05
-	JMP SwitchBank_Local1
+	LDY #$01					; wooden sword slot by default
+	LDA ActiveMagic
+	BEQ @Done
+	
+    CMP #$01					; fire magic
+    BEQ @Done
+	
+    LDY #$02					; frost magic
+    CMP #$02
+    BEQ @Done
+	
+    LDY #$03					; lightning magic
+	
+@Done:
+	RTS
 
 
 
@@ -6834,6 +6852,10 @@ ResetObjStateHijack:
     LDA $06							; zero means no collision
 	BEQ @Exit
 	
+	LDA $09							; need to deactivate lightning sword beams
+	CMP #$01						; there was (is?) a bug where the sword beam
+	BEQ @Exit						; "explosion" would keep repeating
+	
 	; do not deactivate lightning
 	RTS
 
@@ -6869,6 +6891,16 @@ CheckMonsterShotCollisionHijack:
 
 ; Y is weapon object slot
 PolsVoiceHijack:
+
+	CLC
+	LDA ObjType+1
+    CMP #$4B
+    BCC @NormalObject
+	
+	JMP ParryOrShove					; skip if old man
+	
+@NormalObject:
+
 	; LDA #$01
 	; PHA	
 	LDA #>(TryLightningPierce - 1)
