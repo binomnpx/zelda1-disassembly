@@ -32,16 +32,19 @@ The following features have already been implemented:
 - If you did not choose the sword at the beginning, a sword will be found in place of the weapon you chose where it would normally appear in the base game (not fully finished). The sword also appears in your inventory and can be selected and used with the B button (finished).
 
 
-Books - Each book works differently for each weapon, using the book expends rupees.
-- If you chose the sword, pressing B activates the book's effects until you leave the screen.
-- If you chose the rod, having the book selected in the "B" slot will produce the effect when you attack with the rod by pressing A.
-- If you chose the bow, pressing B shoots an arrow with the effect applied to it.
+Books
+- Each book works differently for each weapon, using the book expends rupees.
+	- If you chose the sword, pressing B activates the book's effects until you leave the screen.
+	- If you chose the rod, having the book selected in the "B" slot will produce the effect when you attack with the rod by pressing A.
+	- If you chose the bow, pressing B shoots an arrow with the effect applied to it.
   
- Effects
+Book Effects
 - The red book leaves a flame when you hit enemies.
 - The blue book stuns enemies when you hit them.
 - The green book either shoots sword beams (sword) or pierces through enemies (rod/bow) just like how arrows will pierce through Pol's Voice in the base game.
 
+TO DO
+-----
 
 The following features remain or need tweaking:
 
