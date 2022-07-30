@@ -1,7 +1,7 @@
 My Branch
 ---------
 
-Hello, this is a branch off of someone else's disassembly of The Legend of Zelda for NES. My plan is to create a ROM hack with a ton of new features. I have made a lot of progress already but I am considering starting from scratch.
+Hello, this is a branch off of someone else's disassembly of The Legend of Zelda for NES. My plan is to create a ROM hack with a ton of new features. I have made a lot of progress already but I am considering starting from scratch so that the ROM is a little cleaner.
 
 Before I give my elevator speech, I will get straight to the point. My experience with ROM hacking is limited. I probably have about 1000 hours of learning and programming split between two games: Pokemon Crystal for GBC and The Legend of Zelda for NES. I am looking for collaborators who are interested in the project, know what they are doing, and can help me figure out how to solve some of the more complicated problems I have come across. This hack was never meant to be overly ambitious, and I don't believe it will be for an experienced ROM hacker.
 
@@ -17,7 +17,7 @@ Premise
 
 The basic premise is that at the beginning of the game, you choose one of three weapons: the sword, the rod, or the bow. Depending on which weapon you chose, your game experience will play out differently. You will also gain access to three magic books that augment your weapon.
 
-Also, I have become aware of a program that randomizes the overworld and dungeons of the game. It would be cool if this hack were compatible with the randomizer.
+I have become aware of a program that randomizes the overworld and dungeons of the game. It would be cool if this hack were compatible with the randomizer.
 
 I am considering calling this the "Take This! Edition" hence the name of the branch. (There is no exclaimation point in the text in game but many people probably aren't aware of that and "Take This. Edition" or "Take This Edition" might look weird.
 
@@ -49,11 +49,11 @@ TO DO
 The following features remain or need tweaking:
 
 
+- Books are found in place of the white sword and the magical sword from the base game.
 - Allow certain enemies to be hit by the rod and bow (some enemies are normally immune).
 - Adjust damage values. I have already messed with these but I need to change them.
 	- Rod and bow remain at base damage. The sword becomes more powerful depending on which book is active. Otherwise, damage is equal to the beginning sword.
 	- Enemies normally immune to rod/bow take half damage unless the green book is active.
-- If you chose the rod, you take double damage from enemies.
 
 
 If you chose the sword:
@@ -63,7 +63,8 @@ If you chose the sword:
 
 
 If you chose the rod:
-- You can't wear/buy a shield (need to change sprite as well).
+- You take double damage from enemies.
+- You can't wear/buy any shield (need to change sprite as well).
 - You can walk through bombable walls just like how you can walk through false walls in the second quest.
 - You collect five bombs instead of four from enemies.
 - Press the B button with a book selected to activate a stronger form of magic (expends one bomb).
@@ -76,7 +77,7 @@ If you chose the bow:
 - You can't wear/buy the big shield.
 - You walk/run faster.
 - You collect double rupees from enemies.
-- A bomb placed will have alternate effects involving the books.
+- A bomb placed will have a random alternate effect.
 
 
 Add a third ring item that reduces the book cost by one rupee and allows wizzrobes/darknuts to be damaged by flames and stunned by your weapon.
