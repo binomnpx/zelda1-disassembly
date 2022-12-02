@@ -3,7 +3,7 @@ My Branch
 
 Hello, this is a branch off of someone else's disassembly of The Legend of Zelda for NES. My plan is to create a ROM hack with a ton of new features. I have made a lot of progress already but I am considering starting from scratch so that the ROM is a little cleaner.
 
-Before I give my elevator speech, I will get straight to the point. My experience with ROM hacking is limited. I probably have about 1000 hours of learning and programming split between two games: Pokemon Crystal for GBC and The Legend of Zelda for NES. I am looking for collaborators who are interested in the project, know what they are doing, and can help me figure out how to solve some of the more complicated problems I have come across. This hack was never meant to be overly ambitious, and I don't believe it will be for an experienced ROM hacker.
+My experience with ROM hacking is limited. I probably have about 1000 hours of learning and programming split between two games: Pokemon Crystal for GBC and The Legend of Zelda for NES. I am looking for collaborators who are interested in the project, know what they are doing, and can help me figure out how to solve some of the more complicated problems I have come across. This hack was never meant to be overly ambitious, and I don't believe it will be for an experienced ROM hacker.
 
 Here is a quick list of problems that I am completely lost on:
 - Make full use of ROM bank 1. Even by making use of bankswitching to save space, this bank is nearly full. I believe there is space left that I can somehow take advantage of. See src\Z.cfg for more details. I edited this file in an attempt to give me more space, setting size = $2000 from size = $1270 on line 5 of the file.
@@ -27,29 +27,29 @@ The following features have already been implemented:
 
 - Choose weapon at beginning of game. Your color changes: sword = red, rod = bluish white, bow = green.
 - You receive "starting equipment" depending on your weapon choice.
-- Your weapon appears in "A" slot where the sword normally appears.
+- Your weapon appears in the "A" slot where the sword normally appears.
 - Press SELECT to make a book appear in the "B" slot. Pressing SELECT will rotate to the next book. If the last book is selected and you press SELECT again, your "B" item will appear again in the "B" slot. You can then press SELECT again to select a book.
 - If you did not choose the sword at the beginning, a sword will be found in place of the weapon you chose where it would normally appear in the base game (not fully finished). The sword also appears in your inventory and can be selected and used with the B button (finished).
 
 
 Books
 - Each book works differently for each weapon, using the book expends rupees.
-	- If you chose the sword, pressing B activates the book's effects until you leave the screen.
+	- If you chose the sword, pressing B activates the book's effects until you leave the screen. You also flash for a second and a "magical" sound plays on activation.
 	- If you chose the rod, having the book selected in the "B" slot will produce the effect when you attack with the rod by pressing A.
 	- If you chose the bow, pressing B shoots an arrow with the effect applied to it.
   
 Book Effects
 - The red book leaves a flame when you hit enemies.
-- The blue book stuns enemies when you hit them.
+- The blue book stuns ("freezes") enemies when you hit them.
 - The green book either shoots sword beams (sword) or pierces through enemies (rod/bow) just like how arrows will pierce through Pol's Voice in the base game.
 
-TO DO
+To Do
 -----
 
 The following features remain or need tweaking:
 
 
-- Books are found in place of the white sword and the magical sword from the base game.
+- Books are found in place of the white (2nd) and magical (3rd) swords from the base game.
 - Allow certain enemies to be hit by the rod and bow (some enemies are normally immune).
 - Adjust damage values. I have already messed with these but I need to change them.
 	- Rod and bow remain at base damage. The sword becomes more powerful depending on which book is active. Otherwise, damage is equal to the beginning sword.
