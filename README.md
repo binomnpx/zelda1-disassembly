@@ -36,6 +36,25 @@ See Features List : Books below to see how to activate magic and for more detail
 
 A few enemies are invulnerable to the Rod and Bow (Darknuts, Wizzrobes, Gleeok, Patra, and Ganon) and only take damage from the sword and sometimes bomb. You will always be able to obtain a sword no matter which starting weapon you choose but I think these enemies should be able to take at least half damage from the Rod and Bow. I plan on adding an item (green ring) to replace the magic book from the base game (found in level 8) that allows at least Darknuts/Wizzrobes to be vulnerable to fire and can be stunned. Maybe it can also let you damage these enemies with the Rod or Bow. The item will also lower magic cost by 1 rupee. Since this replaces the book of magic from the base game, it will also cause the rod to produce a flame if the sword or bow was chosen at the start.
 
+Play Now!
+---------
+
+You can try the game yourself by building the ROM, and using Mesen (highly recommended emulator) or whatever to edit some memory. The game is not finished but you can try out some of the stuff I already included.
+
+First, you need to build the ROM by following the instructions at the bottom of this README. Next, load up the game in Mesen and then at the title screen, edit the ROM (use Memory Tools in Mesen and select PRG ROM). Go to address $18600 and type in the following bytes at addresses $18600, $18601, and $18602: 10 03 4A. These place the items in the starting cave. Pick up the weapon you want then edit some RAM (use Memory Tools in Mesen and select CPU Memory). Go to $0657 and change these bytes:
+- $066D -> FF : This will give you 255 rupees to try out the magic.
+- $0661 -> 03 : This will give you all the books. There is currently no way to obtain them otherwise.
+- If bow: $0658 -> 08 : Give yourself some bombs, you need an item to use the book (this is a bug). Also $065A -> 01 : This will give you the "bow." I coded things in a weird way but this will actually allow you to use the wooden sword as though it were a secondary weapon!
+- If rod: $065F -> 01 : Gives you the "rod." Similar to the bow, this lets you use the white sword as though it were a secondary weapon!
+
+Press SELECT to select a book and have some fun! Use A and B for magic. I messed with the damage values and they are unbalanced but will be rebalanced in the future! Try out the blue book on blue moblins, blue leevers, or lionels to see its effects (most early game enemies will not survive a hit using the blue book so it is hard to see the effect in action).
+
+RAM addresses: https://datacrystal.romhacking.net/wiki/The_Legend_of_Zelda:RAM_map
+
+ROM addresses: https://datacrystal.romhacking.net/wiki/The_Legend_of_Zelda:ROM_map
+
+There is a way to add annotated addresses to the memory tools in Mesen but I forget how. Somebody out there has the annotations and you can add them to your Mesen emulator.
+
 My Branch
 ---------
 
