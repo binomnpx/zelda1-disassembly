@@ -1,3 +1,41 @@
+TLDR
+----
+This game is not complete but many of these features have been successfully implemented.
+
+The game is entirely the same except you choose from one of three starting weapons (sword, rod, bow). Various gameplay elements are modified depending on what you chose (see table below). You also collect three books which appear in place of the white (2nd) sword and magical (3rd) sword; the first is given to you when you pick a weapon. They allow you to spend rupees that modify the attacks of your main weapon (sword, rod, bow).
+
+| *Features* | Sword | Rod  | Bow |
+| --- | --- | --- | --- |
+| *Link's Color* | Red | Bluish White | Green |
+| *Shield* | Magical Shield | No Shield | Regular Shield |
+| *Starting Equipment* | Food, Red Potion | Blue Candle, Blue Potion | Arrow, 2 Keys, 30 Rupees |
+| *Sword*\* | Magical | White | Wooden |
+| *Pickup Bonus* | Hearts +1, Fairies +2 | Bombs +1 | Rupees x2 |
+| *Resistance* |  | Fireballs, Wizzrobes (x1/2 dmg) |  |
+| *Weakness* |  | Everything else (x2 dmg) |  |
+| *Special* | Old men fill rupees to 30 | Can walk through bombable walls | Faster movement |
+
+\*Swords are found in place of the starting weapon. The magical sword's damage depends on which magic book is active.
+
+See Features List below for more details.
+
+| *Books* |  Effect | Sword Cost | Rod Cost  | Bow Cost |
+| --- | --- | --- | --- | --- |
+| *Red* | Fire | 2 | 1 | 1 + 1 |
+| *Blue* | Stun | 4 | 2 | 2 + 1 |
+| *Green* | Sword Shot/Pierce* | 8 | 4 | 4 + 1 |
+
+\*Sword shots at -3 hearts, rod/bow shots pierce through enemies dealing damage
+
+See Features List : Books below to see how to activate magic and for more details.
+
+**Bombs** depend on books and your starting weapon.
+- **Sword**: Placing a bomb has an additional magic effect depending on which magic is active.
+- **Rod**: A bomb is expended when the B button is pressed with a book equipped for a powerful magic shot effect (see below for details). Placing a bomb is unchanged from base game.
+- **Bow**: Placing a bomb has an additional magic effect at random depending on which books you have.
+
+A few enemies are invulnerable to the Rod and Bow (Darknuts, Wizzrobes, Gleeok, Patra, and Ganon) and only take damage from the sword and sometimes bomb. You will always be able to obtain a sword no matter which starting weapon you choose but I think these enemies should be able to take at least half damage from the Rod and Bow. I plan on adding an item (green ring) to replace the magic book from the base game (found in level 8) that allows at least Darknuts/Wizzrobes to be vulnerable to fire and can be stunned. Maybe it can also let you damage these enemies with the Rod or Bow. The item will also lower magic cost by 1 rupee. Since this replaces the book of magic from the base game, it will also cause the rod to produce a flame if the sword or bow was chosen at the start.
+
 My Branch
 ---------
 
